@@ -1,12 +1,12 @@
-ifndef XILINX_SDX
-$(error XILINX_SDX is not set)
+ifndef XILINX_VITIS
+$(error XILINX_VITIS is not set)
 endif
 
 ifndef AWS_PLATFORM
 $(error AWS_PLATFORM is not set)
 endif
 
-CLCC = xocc
+CLCC = v++
 
 BITSTREAM_NAME = xgboost_exact
 PLATFORM := ${AWS_PLATFORM}
@@ -18,8 +18,8 @@ BITSTREAM_DIR := bitstream
 KERNEL_SRCS = $(notdir $(wildcard $(SRC_DIR)/*.cpp))
 KERNEL_OBJECTS := $(KERNEL_SRCS:.cpp=.xo)
 
-HOST_CFLAGS = -g -Wall -I${XILINX_SDX}/runtime/include/1_2
-HOST_LFLAGS = -L${XILINX_SDX}/runtime/lib/x86_64 -lxilinxopencl
+HOST_CFLAGS = -g -Wall -I${XILINX_VITIS}/runtime/include/1_2
+HOST_LFLAGS = -L${XILINX_VIOTIS}/runtime/lib/x86_64 -lxilinxopencl
 
 BANKS = --sp xgboost_exact_0_1.m_axi_gmem0:bank0 \
 		--sp xgboost_exact_0_1.m_axi_gmem1:bank0 \
@@ -27,24 +27,19 @@ BANKS = --sp xgboost_exact_0_1.m_axi_gmem0:bank0 \
 		--sp xgboost_exact_0_1.m_axi_gmem3:bank0 \
 		--sp xgboost_exact_0_1.m_axi_gmem4:bank0 \
 		--sp xgboost_exact_0_1.m_axi_gmem5:bank0 \
-		--sp xgboost_exact_0_1.m_axi_gmem6:bank0 \
-		--sp xgboost_exact_1_1.m_axi_gmem0:bank1 \
-		--sp xgboost_exact_1_1.m_axi_gmem1:bank1 \
-		--sp xgboost_exact_1_1.m_axi_gmem2:bank1 \
-		--sp xgboost_exact_1_1.m_axi_gmem3:bank1 \
-		--sp xgboost_exact_1_1.m_axi_gmem4:bank1 \
-		--sp xgboost_exact_1_1.m_axi_gmem5:bank1 \
-		--sp xgboost_exact_1_1.m_axi_gmem6:bank1
+		--sp xgboost_exact_0_1.m_axi_gmem6:bank0 
 
 VIVADO_OPTS = --xp misc:enableGlobalHoldIter="True" \
-			  --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE=NoTimingRelaxation 
+			  --xp "vivado_prop:run.impl_1.{STEPS.PLACE_DESIGN.ARGS.MORE OPTIONS}={-fanout_opt}" \
+			  --xp "vivado_prop:run.impl_1.{STEPS.PHYS_OPT_DESIGN.ARGS.MORE OPTIONS}={-directive Explore}" \
+			  --xp "vivado_prop:run.impl_1.{STEPS.ROUTE_DESIGN.ARGS.MORE OPTIONS}={-directive Explore}"
 
 all: $(KERNEL_OBJECTS:%.xo=$(BUILD_DIR)/%.xo)
-	cd $(BUILD_DIR) && ${CLCC} -t hw --kernel_frequency "0:200" --link --platform ${PLATFORM} ${VIVADO_OPTS} \
+	cd $(BUILD_DIR) && ${CLCC} -t hw --link --platform ${PLATFORM} ${VIVADO_OPTS} \
 		${BANKS} ${KERNEL_OBJECTS} -o ../$(BITSTREAM_DIR)/${BITSTREAM_NAME}.hw.xclbin && cd ../
 
 $(BUILD_DIR)/%.xo: $(SRC_DIR)/%.cpp
-	cd $(BUILD_DIR) && ${CLCC} -t hw --kernel_frequency "0:200" --platform ${PLATFORM} \
+	cd $(BUILD_DIR) && ${CLCC} -t hw  --platform ${PLATFORM} \
 		--kernel $(notdir $(basename $<)) -c ../$< -o $(notdir $@) && cd ../
 
 upload:
