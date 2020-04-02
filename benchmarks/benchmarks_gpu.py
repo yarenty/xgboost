@@ -36,7 +36,7 @@ def add_data(df, algorithm, name, metric_t, elapsed, metric):
     df.loc[(name,algorithm), metric_t] = metric
 
 def calc_speedup(df, name):
-    df.loc[(name,'fpga'), 'SpeedUp'] = df.loc[(name,'cpu'), 'Time(s)']/df.loc[(name,'fpga'), 'Time(s)']
+    df.loc[(name,'gpu'), 'SpeedUp'] = df.loc[(name,'cpu'), 'Time(s)']/df.loc[(name,'gpu'), 'Time(s)']
 
 def configure_xgboost(nclass, alg, task, args):
     params = {'max_depth':args.depth, 'verbosity':args.verbosity, 'eta':'0.1'}
@@ -119,14 +119,17 @@ def main():
 
     columns = ['Time(s)','Accuracy','RMSE','SpeedUp']
     df = pd.DataFrame()
+    print(args)
+    print(args.datasets)
 
     if "Cifar10" in args.datasets:
         X_train, y_train, X_test, y_test = cifar10_dataset()
         iterables = [["Cifar10"],['cpu','gpu']]
         index = pd.MultiIndex.from_product(iterables)
         df2 = pd.DataFrame( index=index, columns=columns)
-        train_xgboost(X_train, y_train, X_test, y_test,'gpu', "Cifar10", "Multiclass classification", "Accuracy", df2, args)
         train_xgboost(X_train, y_train, X_test, y_test,'cpu', "Cifar10", "Multiclass classification", "Accuracy", df2, args)
+        print(df2.loc[("Cifar10",'cpu'), 'Time(s)'])
+        train_xgboost(X_train, y_train, X_test, y_test,'gpu', "Cifar10", "Multiclass classification", "Accuracy", df2, args)
         calc_speedup(df2, "Cifar10")
         df = df.append(df2)
         print(df.to_string())
@@ -141,7 +144,7 @@ def main():
         calc_speedup(df2, "SVHN")
         df = df.append(df2)
         print(df.to_string())
-                   
+
     if "SyntheticR" in args.datasets:
         for nfeat in args.nfeatures:
             X_train, y_train, X_test, y_test = synthetic_regression_dataset(nfeat)
